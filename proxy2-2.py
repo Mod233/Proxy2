@@ -7,8 +7,10 @@ from scapy.all import *
 localip = '10.0.0.2'
 localport = 1234
 local = (localip, localport)
-dstip = '10.0.0.5'
-dstport = 1234
+serverip = '10.0.0.3'
+serverport = 1234
+proxyip = '10.0.0.4'
+#proxyport =
 bufsize = 2048
 #proxy_1_ip = ''
 #proxy_1_port = 9999
@@ -17,7 +19,7 @@ bufsize = 2048
 def check_sum(data):
     s = str(data)
     check = int(0)
-    check = 0xa05+0xa04  # srcip+dstip
+    check = 0xa02+0xa03  # srcip+dstip
     check = check + 0x06 + len(s)   # type:06 length:len(s)
     length = len(s)
     #    print "length ", length
@@ -49,7 +51,7 @@ def check_sum(data):
         check = check >> 16
 
     check = 0xffff - ans
-    print hex(check)
+#    print hex(check)
     #   s = s[:17] + '00' + s[19:]
     s = s[:17] + chr(check % 256) + s[18:]
     check = check / 256
@@ -65,22 +67,42 @@ def soc(c):
     num = 0
     while True:
         data = c.recv(bufsize)
+        print "Client says: ", data
         data = check_sum(data)
         if(len(data) > 0):
-            send(IP(dst=dstip, src=localip, type=6, ip=num)/data)
+            send(IP(dst=serverip, src=localip, proto=6, id=num)/data)
             num = num + 1
             num = num % 65536
 
 
-def raw(c):
+def solve_tcp(c, pkts):
+    for buf in pkts:
+        data = buf[TCP]
+        print
+        "capture packet ", data
+        try:
+            c.send(str(data))
+        except Exception, e:
+            print
+            e.message
+            c.close()
+            break
+
+
+def raw_sniff(c):
     while True:
-        pkts = sniff(iface="en0", filter='tcp and ip src 10.0.0.5', count=1)
+        pkts = sniff(iface="en0", filter='tcp and ip src 10.0.0.3 and tcp port 1234', count=1)
         for buf in pkts:
             data = buf[TCP]
+            print
+            "capture packet ", data
             try:
                 c.send(str(data))
             except Exception, e:
-                print "e.message"
+                print
+                e.message
+                c.close()
+                break
 
 
 def main():
@@ -91,7 +113,7 @@ def main():
     #while True:
     c, addr = s.accept()
     print "Connected from: ", addr
-    thread.start_new_thread(raw, (c, ))
+    thread.start_new_thread(raw_sniff, (c, ))
     thread.start_new_thread(soc, (c, ))
     while True:
         #print "ok"
