@@ -4,18 +4,20 @@ import thread
 import time
 from scapy.all import *
 
-dstip = '10.0.0.2'
-dstport = 1234
+proxy2ip = '10.0.0.2'
+proxy2port = 1234
+clientip = '10.0.0.8'
+#clientport =
 bufsize = 2048
 localip = '10.0.0.4'
-localport = 1234
+#localport = 1234
 #to proxy1
 
 def check_sum(data):
 
     s = str(data)
     check = int(0)
-    check = 0xa05+0xa04  # srcip+dstip
+    check = 0xa08+0xa04  # srcip+dstip
     check = check + 0x06 + len(s)   # type:06 length:len(s)
     length = len(s)
     #    print "length ", length
@@ -62,9 +64,9 @@ def check_sum(data):
         return s
 
 
-def test():
+def wwtest():
     while True:
-        pkts = sniff(iface="enp0s31f6", filter='tcp and ip src 10.0.0.5 ', count=1)
+        pkts = sniff(iface="enp0s31f6", filter='tcp and ip src 10.0.0.8 and tcp port 1234 ', count=1)
         #len = str(str1)
         for buf in pkts:
             data = buf[TCP]
@@ -75,9 +77,10 @@ def test():
             print len(data)
             print data
 
+
 def raw(s):
     while True:
-        pkts = sniff(iface="enp0s31f6", filter='tcp and ip src 10.0.0.5 ', count=1)
+        pkts = sniff(iface="enp0s31f6", filter='tcp and ip src 10.0.0.8 ', count=1)
         for buf in pkts:
             data = buf[TCP]
             try:
@@ -96,20 +99,21 @@ def soc(s):
     num = 0
     while True:
         data = s.recv(bufsize)
-        print "data is ", data
-        print "data length ", len(data)
+#        print "data is ", data
+#        print "data length ", len(data)
         data = check_sum(data)
         if(len(data)>0):
-            send(IP(dst=dstip, src=localip, type=6, id=num)/data)
+            send(IP(dst=clientip, src=localip, proto=6, id=num)/data)
             num = num+1
             num = num % 65535
 
 
 def main():
+    print "@@"
     c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
         try:
-            c.connect((dstip, dstport))
+            c.connect((proxy2ip, proxy2port))
         except Exception, e:
             print "failed to connect "
             c.close()
@@ -123,6 +127,6 @@ def main():
     print "Finish!"
 
 if __name__ == '__main__':
-#    main()
-    test()
+    main()
+#    test()
 
